@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="cn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>保存Webmap</title>
+    
+    <!-- 此时直接引入的5.0 SDK 的架构，集合了 UI 控件库、核心 API 库、HTML标签转换库 -->
+    <!-- 前面引入的4.34版本未集中，因此需要分别引入3个库 -->
+    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
+    <script type="module" src="https://js.arcgis.com/5.0/"></script>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <arcgis-map>
+      <arcgis-zoom slot="top-left"></arcgis-zoom>
+      <!-- arcgis-expang为拓展组件标签 -->  
+      <!-- 为双标签，标签内部再嵌入详细拓展标签即可 -->
+      <!-- slot（位置属性）属性为挂载位置 -->
+      <!-- group（逻辑状态）为互斥状态。即在slot中，检测到group的值，其他相同group的所有拓展组件均不显示 -->
+      <!-- expanded为是否展开状态，只要写了expanded就默认展开，不管true或false -->
+      <!-- close-on-esc快捷键：按esc关闭该控件 -->
+      <arcgis-expand slot="top-left" group="top-left" expanded="false" close-on-esc>
+        <!-- 图例 -->
+        <arcgis-legend></arcgis-legend>
+      </arcgis-expand>
+      <arcgis-expand slot="top-left" group="top-left" close-on-esc>
+        <!-- 图层 -->
+        <arcgis-layer-list></arcgis-layer-list>
+      </arcgis-expand>
+      <arcgis-expand slot="top-left" group="top-left" close-on-esc>
+        <!-- 底图库 -->
+        <arcgis-basemap-gallery></arcgis-basemap-gallery>
+      </arcgis-expand>
+      <!-- 内容面板控件，双标签，可以看作一个柜子 -->
+      <calcite-panel slot="top-right" >
+        <!-- 柜子里的抽屉，用于分组 -->
+        <calcite-block expanded heading="Save WebMap" description="Save your WebMap to ArcGIS Online" collapsible>
+          <!-- 表单标签，和label一样，下面input、button同理 -->
+          <calcite-label>
+            Webmap title
+            <calcite-input id="webMapTitle" type="text" placeholder="My WebMap"></calcite-input>
+          </calcite-label>
+          <calcite-button id="saveWebMap" width="full" disabled>Save</calcite-button>
+        </calcite-block>
+      </calcite-panel>
+    </arcgis-map>
+    
+    <!-- 保存成功弹窗 -->
+    <!-- calcite-dialog 标签独立于arcgis-map之外，层级与其相同 -->
+    <!-- modal 是否为遮罩模式，加上modal则地图为不可交互状态 -->
+    <!-- scale代表屏幕占比，width为占屏幕宽度 -->
+    <calcite-dialog id="overlayDiv" heading="Save WebMap" modal scale="s" width="s">
+      <label id="info"></label>
+      <calcite-button id="OK" slot="footer-end" >OK</calcite-button>
+    </calcite-dialog>
+
+    <!-- 加一个type="module"的原因： -->
+     <!-- 1.现代化模块：允许import和await -->
+     <!-- 2.作用域隔离：防止全局污染。若直接在script里声明变量，则变量会直接绑定到浏览器的全局对象中，若引入了其他JS文件里有相同名称变量会导致报错
+       type="module"相当于一个盒子，不会泄露到全局，只在当前盒子内有效 -->
+     <!-- 3.defer机制：让浏览器在解析HTML的同时下载JS文件，但等到HTML解析完成后才执行JS代码，避免阻塞页面渲染 -->
+    <script type="module">
+      // 以异步的方式，从 Esri 的 CDN 服务器拉取 WebMap 这个类的逻辑代码，这行代码执行后，WebMap 类就被加载到浏览器内存中，可以在后续代码里使用了。
+      const [WebMap] = await $arcgis.import(["@arcgis/core/WebMap.js"]);
+        // 可以同时拉取多个类
+        // const [WebMap, FeatureLayer, Graphic] = await $arcgis.import([
+        // "@arcgis/core/WebMap.js",
+        // "@arcgis/core/layers/FeatureLayer.js",
+        // "@arcgis/core/Graphic.js"
+        // ]);
+      // 获取WebMap的ID
+      let webmapId = "06ca49d0ddb447e7817cfc343ca30df9";
+      if (window.location.href.indexOf("?id=") > 0) {
+        webmapId = window.location.href.split("?id=")[1];
+      }
+      const viewElement = document.querySelector("arcgis-map");
+
+      /************************************************************
+       * Creates a new webmap instance. A WebMap can reference
+       * a PortalItem ID that represents a WebMap saved to
+       * arcgis.com or an on-premise portal.
+       ************************************************************/
+      const map = new WebMap({
+        portalItem: {
+          id: webmapId,
+        },
+      });
+
+      viewElement.map = map;
+      await viewElement.viewOnReady();
+      // When the webmap and view resolve, display the webmap's
+      // new title in the Div
+      const title = document.getElementById("webMapTitle");
+      const save = document.getElementById("saveWebMap");
+      // 蛮有意思，这个disabled对应52行左右的button标签里的disabled属性，默认为true，即按钮不可点击状态。
+      // 当地图加载完成后，才把它改为false，允许用户点击保存按钮。没有这个的话，交互就会变得没那么友好，用户可能会在地图还没加载完成的时候就点击保存按钮，结果报错了还不知道原因。   
+      save.disabled = false;
+      // 点击保存按钮后，执行保存操作
+      // 这里会发现并没有写“弹出登录窗口”的有关代码，是因为从这执行到saveAs方法时（很快啊，视觉上是因为点了这个所以才弹出弹窗），SDK会自动检测用户是否登录了ArcGIS Online。
+      // 如果没有登录，就会自动弹出登录窗口让用户登录。登录成功后，才会继续执行保存操作。
+      save.addEventListener("click", () => {
+        // item automatically casts to a PortalItem instance by saveAs
+        const item = {
+          title: title.value,
+        };
+        // map.updateFrom(viewElement.view)方法的作用是把当前地图视图（viewElement.view）里的一些状态（如中心点、缩放级别、可见范围等）更新到WebMap对象里。
+        // 因为WebMap对象才是最终要保存到ArcGIS Online上的那个对象，所以需要把这些状态更新到WebMap对象里，才能保证保存后的WebMap和当前地图视图是一致的。
+        // 这个方法是一个异步方法，返回一个Promise对象，所以需要用then方法来处理它的结果。当更新完成后，才会继续执行保存操作。
+        // Update properties of the WebMap related to the view.
+        // This should be called just before saving a webmap.
+        map.updateFrom(viewElement.view).then(() => {
+          map
+            .saveAs(item)       // saveAs方法会把WebMap对象保存到ArcGIS Online上，成为一个新的WebMap项目
+            .then((item) => {
+              // link to the newly-created web map item
+              const itemPageUrl = `${item.portal.url}/home/item.html?id=${item.id}`;
+              const link = `<a target="_blank" href="${itemPageUrl}">${title.value}</a>`;
+
+              statusMessage(`<br> Successfully saved as <i>${link}</i>`);
+            })
+            // Save didn't work correctly
+            .catch((error) => {
+              if (error.name != "identity-manager:user-aborted") {
+                statusMessage(`<br> Error ${error}`);
+              }
+            });
+        });
+      });
+      
+      // 保存成功弹窗部分
+      const overlay = document.getElementById("overlayDiv");
+      const ok = document.getElementById("OK");
+      function statusMessage(info) {
+        document.getElementById("info").innerHTML = info;
+        overlay.open = true;
+      }
+
+      ok.addEventListener("click", () => {
+        overlay.open = false;
+      });
+    </script>
+  </body>
+</html>
