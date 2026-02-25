@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="cn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>利用地图组件创建 2D 地图</title>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+    </style>
+    <!-- Load Calcite components from CDN -->
+    <!-- ESRI官方UI组件库，提供除地图以外的UI元素（如按钮、下拉框等，本文件中提供的是slot，即缩放符号） -->
+    <script type="module" src="https://js.arcgis.com/calcite-components/3.3.3/calcite.esm.js"></script>
+
+    <!-- ESRI写的核心GIS引擎，负责核心的GIS计算（WebGL硬件加速渲染，坐标系转换，加载底图切片，空间分析等）
+         对应basemap="topo-vector" zoom="4" center="15, 65" -->
+    <!-- 当组件读取到用户需要显示 topo-vector 底图和特定的经纬度时，该引擎向 Esri 的服务器发送网络请求获取矢量切片数据，
+         并在浏览器里创建一个 <canvas> 画布，利用 WebGL 把地图画出来。 -->
+    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
+    <script src="https://js.arcgis.com/4.34/"></script>
+
+    <!-- ESRI写的地图组件库，连接SDK，将其转换为 HTML 标签，即：<arcgis-map>和<arcgis - zoom> -->
+    <!-- 若没有引入这个库，<arcgis-map>和<arcgis-zoom>标签将不会被浏览器识别为有效的HTML元素。 -->
+    <!-- 引入后，它告诉浏览器“当执行到<arcgis-map>时，去ArcGIS Maps SDK调用 API 执行创建命令”。 -->
+    <!-- Load Map components from CDN-->
+    <script type="module" src="https://js.arcgis.com/4.34/map-components/"></script>
+  </head>
+
+  <body>
+    <!-- 可以改好多属性值，这个蛮有意思 -->
+    <!-- basemap代表底图：hybrid是带有街道和地名标注的卫星影像、topo-vector是标准地形图 -->
+    <!-- zoom代表默认缩放级别 -->
+    <!-- center代表中心点经纬度坐标，+代表东经和北纬，-代表西经和南纬 -->
+    <!-- <arcgis-map basemap="hybrid" zoom="18" center="114.915525,25.848628"> -->
+    <!-- 上传自己在arcgisonline创建的mapviewer项目 -->
+    <!-- <arcgis-map item-id="dbc000c768f74fa3a203dd4004cee5ce"> -->
+    <!-- 上传自己在arcgispro里分析的项目 -->
+    <arcgis-map item-id="c90c5bb5a9384806b6413ea5f6654d4b">
+      <!-- 缩放小组件 -->
+      <arcgis-zoom slot="top-left"></arcgis-zoom>
+    </arcgis-map>
+    <!-- JS部分 -->
+    <script type="module">
+      // 从 DOM 中获取 <arcgis-map> 组件的引用，赋值给 viewElement 变量
+      const viewElement = document.querySelector("arcgis-map");
+
+      // 放在这里不行，因为此时 <arcgis-map> 组件还没有完全加载完成，viewElement.center 还没有被正确初始化，所以会显示undefined。
+      // 得放在await后面。
+      // const center1 = viewElement.center;
+      // 当程序执行到这里时，直到 viewElement（也就是 <arcgis-map> 组件）内部的地图视图完全准备就绪（viewOnReady），再继续往下执行。
+      // 地图加载是一个复杂的异步过程，涉及到向Esri服务器发起网络请求，获取地图数据、初始化WebGL画布、计算屏幕与真实地理坐标的转换等
+      // 这个过程需要时间不确定，可能是几百毫秒也可能是几秒。如果不等待其加载完成，直接在下一行执行别的操作，程序会报错，因为此时地图的视图引擎还没建好。
+      // Wait for when the component is ready
+      await viewElement.viewOnReady();
+      const center1 = viewElement.center;
+      console.log(center1);
+    </script>
+  </body>
+</html>
